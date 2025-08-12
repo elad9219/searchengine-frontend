@@ -5,6 +5,7 @@ export class DevelopmentGlobals extends Globals {
         crawl: 'http://localhost:8080/api/crawl',
         getCrawlStatus: 'http://localhost:8080/api/crawl',
         search: 'http://localhost:8080/api/search',
+        sendKafka: 'http://localhost:8080/api/sendKafka'
     };
 }
 
@@ -13,6 +14,7 @@ export class ProductionGlobals extends Globals {
         crawl: '/api/crawl',
         getCrawlStatus: '/api/crawl',
         search: '/api/search',
+        sendKafka: '/api/sendKafka'
     };
 }
 

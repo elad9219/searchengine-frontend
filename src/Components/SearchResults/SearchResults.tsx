@@ -2,24 +2,26 @@ import React from 'react';
 import { SearchResult } from '../../modal/SearchResult';
 import './SearchResults.css';
 
-/**
- * SearchResults component to display search results from ElasticSearch.
- */
-const SearchResults: React.FC<{ results: string[] }> = ({ results }) => {
+interface Props {
+    results: SearchResult[];
+    searchPerformed: boolean;
+}
+
+export default function SearchResults({ results, searchPerformed }: Props) {
+    if (!searchPerformed) return null;
     if (!results || results.length === 0) return <p>No results found.</p>;
 
     return (
         <div className="search-results-container">
             <h3>Search Results</h3>
             <ul>
-                {results.map((url, index) => (
-                    <li key={index}>
-                        <a href={url} target="_blank" rel="noopener noreferrer">{url}</a>
+                {results.map((r, i) => (
+                    <li key={i} className="result-item">
+                        <a href={r.url} target="_blank" rel="noopener noreferrer">{r.url}</a>
+                        <div className="snippet" dangerouslySetInnerHTML={{ __html: r.snippet || '' }} />
                     </li>
                 ))}
             </ul>
         </div>
     );
-};
-
-export default SearchResults;
+}

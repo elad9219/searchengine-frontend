@@ -35,3 +35,8 @@ button:hover {
     color: red;
     margin-top: 10px;
 }
+
+p {
+    margin-bottom: 10px;
+    color: #333;
+}

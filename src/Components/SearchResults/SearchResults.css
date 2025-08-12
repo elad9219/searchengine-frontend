@@ -1,24 +1,2 @@
-.search-results-container {
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-ul {
-    list-style-type: none;
-    padding: 0;
-}
-
-li {
-    margin-bottom: 10px;
-}
-
-a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
+.snippet { background:#fafafa; padding:10px; border-radius:6px; margin-top:6px; color:#222; }
+.snippet em { background: yellow; font-style: normal; padding:0 2px; }
