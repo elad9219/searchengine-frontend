@@ -2,157 +2,113 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import globals from '../../utils/globals';
 import { CrawlerRequest } from '../../modal/CrawlerRequest';
-import { SearchResult } from '../../modal/SearchResult';
 import './SearchBar.css';
 
 interface Props {
-    onCrawlStarted: (crawlId: string) => void;
-    onSearch: (results: SearchResult[], performed: boolean) => void;
+    onCrawlStarted: (id: string, maxSeconds: number | null) => void;
+    onSearch: (results: any[], performed: boolean) => void;
 }
-
-const normalizeUrl = (input: string) => {
-    if (!input || input.trim() === '') return input;
-    let u = input.trim();
-    if (!u.startsWith('http://') && !u.startsWith('https://')) {
-        u = 'https://' + u;
-    }
-    try {
-        const parsed = new URL(u);
-        let host = parsed.host;
-        if (!host.startsWith('www.')) {
-            host = 'www.' + host;
-        }
-        const rebuilt = parsed.protocol + '//' + host + (parsed.pathname ?? '') + (parsed.search ?? '') + (parsed.hash ?? '');
-        return rebuilt;
-    } catch (e) {
-        // fallback: best effort
-        if (!u.startsWith('https://')) u = 'https://' + u;
-        if (!u.includes('www.')) {
-            const parts = u.split('://');
-            return parts[0] + '://' + 'www.' + parts[1];
-        }
-        return u;
-    }
-};
 
 const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
     const [url, setUrl] = useState('');
-    const [maxDistance, setMaxDistance] = useState<'1' | '2' | '3' | ''>('2');
-    const [maxSeconds, setMaxSeconds] = useState<string>('');
-    const [maxUrls, setMaxUrls] = useState<string>('');
+    const [maxDistance, setMaxDistance] = useState('');
+    const [maxSeconds, setMaxSeconds] = useState('');
+    const [maxUrls, setMaxUrls] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [error, setError] = useState('');
-    const [searching, setSearching] = useState(false);
-    const [starting, setStarting] = useState(false);
 
-    // Start crawl
     const handleCrawl = async () => {
         setError('');
-        if (!url || url.trim() === '') {
+        if (!url.trim()) {
             setError('Please enter a URL to crawl.');
             return;
         }
-        const normalized = normalizeUrl(url);
         const request: CrawlerRequest = {
-            url: normalized,
+            url: url.trim(),
             maxDistance: maxDistance ? Number(maxDistance) : 2,
             maxSeconds: maxSeconds ? Number(maxSeconds) : 60,
-            maxUrls: maxUrls ? Number(maxUrls) : 10,
+            maxUrls: maxUrls ? Number(maxUrls) : 1000,
         };
-        setStarting(true);
         try {
-            const response = await axios.post(globals.api.crawl, request);
-            onCrawlStarted(response.data);
+            const response = await axios.post(globals.api.crawl, request, { responseType: 'text' });
+            const id = response.data;
+            onCrawlStarted(id, request.maxSeconds);
         } catch (err) {
             console.error(err);
             setError('Failed to start crawl. Please check the URL and try again.');
-        } finally {
-            setStarting(false);
         }
     };
 
-    // Search
     const handleSearch = async () => {
         setError('');
-        if (!searchQuery || searchQuery.trim() === '') {
-            // not performed => don't show "No results found" — frontend will treat performed=false specially
+        if (!searchQuery.trim()) {
+            // do not call search API if empty; show nothing
             onSearch([], false);
             return;
         }
-        setSearching(true);
         try {
             const response = await axios.get(globals.api.search, { params: { query: searchQuery.trim() } });
-            const results: SearchResult[] = response.data.map((r: any) => ({
-                url: r.url,
-                snippet: r.snippet || null,
-            }));
-            onSearch(results, true);
+            onSearch(response.data || [], true);
         } catch (err) {
             console.error(err);
             setError('Failed to fetch search results. Please try again.');
             onSearch([], true);
-        } finally {
-            setSearching(false);
         }
     };
 
-    // Handle Enter key on crawl inputs and search input
-    const onKeyDownCrawl = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleCrawl();
-        }
+    const onCrawlKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') handleCrawl();
     };
-    const onKeyDownSearch = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleSearch();
-        }
+
+    const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') handleSearch();
     };
 
     return (
         <div className="search-bar-container">
-            {/* Title removed as requested */}
             <div className="crawl-form">
                 <input
                     type="text"
-                    placeholder="Enter a website (e.g., ynet.co.il)"
+                    placeholder="Enter a website URL (e.g., ynet.co.il)"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    onKeyDown={onKeyDownCrawl}
+                    onKeyDown={onCrawlKey}
                 />
                 <input
                     type="number"
-                    placeholder="Max depth (e.g., 2)"
+                    placeholder="Max crawl depth"
                     value={maxDistance}
-                    onChange={(e) => setMaxDistance(e.target.value as any)}
-                    onKeyDown={onKeyDownCrawl}
-                    min={1}
+                    onChange={(e) => setMaxDistance(e.target.value)}
+                    onKeyDown={onCrawlKey}
                 />
                 <input
                     type="number"
-                    placeholder="Max seconds (e.g., 60)"
+                    placeholder="Max seconds"
                     value={maxSeconds}
                     onChange={(e) => setMaxSeconds(e.target.value)}
-                    onKeyDown={onKeyDownCrawl}
+                    onKeyDown={onCrawlKey}
                 />
                 <input
                     type="number"
-                    placeholder="Max URLs (e.g., 10)"
+                    placeholder="Max URLs"
                     value={maxUrls}
                     onChange={(e) => setMaxUrls(e.target.value)}
-                    onKeyDown={onKeyDownCrawl}
+                    onKeyDown={onCrawlKey}
                 />
-                <button onClick={handleCrawl} disabled={starting}>{starting ? 'Starting...' : 'Start Crawl'}</button>
+                <button onClick={handleCrawl}>Start Crawl</button>
             </div>
+
             <div className="search-form">
                 <input
                     type="text"
-                    placeholder="Search keyword (press Enter or click Search)"
+                    placeholder="Enter a keyword to search (e.g., news)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={onKeyDownSearch}
+                    onKeyDown={onSearchKey}
                 />
-                <button onClick={handleSearch} disabled={searching}>{searching ? 'Searching...' : 'Search'}</button>
+                <button onClick={handleSearch}>Search</button>
             </div>
+
             {error && <p className="error-message">{error}</p>}
         </div>
     );

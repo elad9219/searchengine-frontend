@@ -1,128 +1,167 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import './CrawlStatusComponent.css';
 import globals from '../../utils/globals';
 import { CrawlStatus } from '../../modal/CrawlStatus';
-import './CrawlStatusComponent.css';
 
-interface Props {
+type Props = {
     crawlId: string;
-}
-
-export default function CrawlStatusComponent({ crawlId }: Props) {
-    const [status, setStatus] = useState<CrawlStatus | null>(null);
-    const [loadingInitial, setLoadingInitial] = useState(false);
-    const [error, setError] = useState('');
-    const pollingRef = useRef<number | null>(null);
-
-const fetchStatus = async (showLoading = false) => {
-    if (!crawlId) return;
-    if (showLoading) setLoadingInitial(true);
-    try {
-        const res = await axios.get<CrawlStatus>(`${globals.api.getCrawlStatus}/${crawlId}`);
-        const data = res.data;
-        setStatus(data);
-        setError('');
-        // client-side determine stop if maxTime reached
-        const now = Date.now();
-        const reachedMax = data.maxTimeMillis && now >= data.maxTimeMillis;
-        const finished = Boolean(data.stopReason || (data as any).status === 'finished' || reachedMax);
-        if (finished && pollingRef.current) {
-            window.clearInterval(pollingRef.current);
-            pollingRef.current = null;
-        }
-        // if reachedMax but stopReason not yet set in backend, set a visible local marker (won't persist)
-        if (reachedMax && !data.stopReason) {
-            setStatus(prev => prev ? { ...prev, stopReason: 'timeout' } : prev);
-        }
-    } catch (err) {
-        setError('Failed to fetch crawl status.');
-    } finally {
-        if (showLoading) setLoadingInitial(false);
-    }
+    maxSeconds: number;
 };
 
+const fmtTime = (millis?: number) => {
+    if (!millis || millis <= 0) return '—';
+    const d = new Date(millis);
+    return d.toLocaleString();
+};
+
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+
+const POLL_MS = 2000;
+
+const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
+    const [status, setStatus] = useState<CrawlStatus | null>(null);
+    const [error, setError] = useState('');
+    const startedAtRef = useRef<number>(Date.now());
+    const pollingRef = useRef<number | null>(null);
+    const visualTimerRef = useRef<number | null>(null);
+    const [elapsedVisible, setElapsedVisible] = useState(0);
+
+    // visual timer (progress) independent of server; runs according to maxSeconds passed
+    useEffect(() => {
+        if (!crawlId) {
+            return;
+        }
+
+        startedAtRef.current = Date.now();
+        setElapsedVisible(0);
+        if (visualTimerRef.current) {
+            window.clearInterval(visualTimerRef.current);
+        }
+        // Update every 100ms for smoother animation
+        visualTimerRef.current = window.setInterval(() => {
+            const elapsed = (Date.now() - startedAtRef.current) / 1000;
+            setElapsedVisible(elapsed);
+        }, 100);
+
+        return () => {
+            if (visualTimerRef.current) {
+                window.clearInterval(visualTimerRef.current);
+            }
+        };
+    }, [crawlId]);
+
+    // poll server status
     useEffect(() => {
         if (!crawlId) {
             setStatus(null);
             setError('');
             if (pollingRef.current) {
                 window.clearInterval(pollingRef.current);
-                pollingRef.current = null;
             }
             return;
         }
-        // initial fetch
-        fetchStatus(true);
-        // set interval
-        pollingRef.current = window.setInterval(() => fetchStatus(false), 2500);
+
+        const fetchStatus = async () => {
+            try {
+                const res = await fetch(`${globals.api.getCrawlStatus}/${crawlId}`);
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        setStatus(prevStatus => prevStatus ? { ...prevStatus, stopReason: 'timeout' } : null);
+                        setError('');
+                        if (pollingRef.current) {
+                            window.clearInterval(pollingRef.current);
+                        }
+                    } else {
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+                } else {
+                    const data = await res.json();
+                    setStatus(data);
+                    setError('');
+                    if (data.stopReason) {
+                        if (pollingRef.current) {
+                            window.clearInterval(pollingRef.current);
+                        }
+                    }
+                }
+            } catch (e) {
+                setError('Failed to fetch status');
+                if (pollingRef.current) {
+                    window.clearInterval(pollingRef.current);
+                }
+            }
+        };
+
+        fetchStatus();
+        if (pollingRef.current) {
+            window.clearInterval(pollingRef.current);
+        }
+        pollingRef.current = window.setInterval(fetchStatus, POLL_MS);
+
         return () => {
             if (pollingRef.current) {
                 window.clearInterval(pollingRef.current);
-                pollingRef.current = null;
             }
         };
     }, [crawlId]);
 
-    const formatTime = (millis?: number) => {
-        if (!millis || millis <= 0) return '-';
-        return new Date(millis).toLocaleString();
-    };
-
-    const elapsedSeconds = () => {
-        if (!status?.startTimeMillis) return 0;
-        return Math.floor(((status.lastModifiedMillis ?? Date.now()) - status.startTimeMillis) / 1000);
-    };
-
-    const remainingSeconds = () => {
-        if (!status?.maxTimeMillis) return null;
-        const rem = Math.max(0, Math.floor((status.maxTimeMillis - (status.lastModifiedMillis ?? Date.now())) / 1000));
-        return rem;
-    };
-
-    const progressPercent = () => {
-        if (!status?.startTimeMillis || !status?.maxTimeMillis) return 0;
-        const total = Math.max(1, status.maxTimeMillis - status.startTimeMillis);
-        const done = Math.max(0, (status.lastModifiedMillis ?? Date.now()) - status.startTimeMillis);
-        return Math.min(100, Math.round((done / total) * 100));
-    };
+    // Use floating point numbers for smoother progress bar
+    const elapsedSec = Math.min(elapsedVisible, maxSeconds);
+    const remainingSec = Math.max(0, maxSeconds - elapsedSec);
+    const progress = clamp01(elapsedSec / Math.max(1, maxSeconds));
+    const finalDone = Boolean(status?.stopReason);
+    const stopReasonText = status?.stopReason ? status.stopReason : '—';
+    const isRunning = !finalDone;
 
     return (
-        <div className="crawl-status-container">
-            <h3>Crawl Status{crawlId ? ` (ID: ${crawlId})` : ''}</h3>
+        <div className="crawl-status-root">
+            <div className="crawl-status-header">
+                {finalDone ? <div className="finished-mark">✓</div> : null}
+                <h3 className="crawl-status-title">Crawl Status {crawlId ? (<span className="crawl-id"> (ID: {crawlId})</span>) : null}</h3>
+            </div>
 
-            {loadingInitial && (
-                <div className="status-loading">
-                    <div className="spinner" />
-                    <span>Starting crawl...</span>
-                </div>
-            )}
-
-            {error && <p className="error-message">{error}</p>}
-
-            {status && (
-                <div className="status-body">
-                    <div className="status-row">
-                        <div className={`status-indicator ${status.stopReason ? 'stopped' : 'running'}`} />
-                        <div className="status-main">
-                            <div className="progress-bar">
-                                <div className="progress" style={{ width: `${progressPercent()}%` }} />
-                            </div>
-                            <div className="status-numbers">
-                                <div>Distance: <strong>{status.distance}</strong></div>
-                                <div>Pages visited: <strong>{status.numPages}</strong></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="times">
-                        <div>Started: <strong>{formatTime(status.startTimeMillis)}</strong></div>
-                        <div>Last modified: <strong>{formatTime(status.lastModifiedMillis)}</strong></div>
-                        <div>Elapsed: <strong>{elapsedSeconds()}s</strong></div>
-                        <div>Remaining: <strong>{remainingSeconds() !== null ? `${remainingSeconds()}s` : '—'}</strong></div>
-                        <div>Stop reason: <strong>{status.stopReason ?? '-'}</strong></div>
+            <div className="crawl-status-box">
+                <div className="progress-wrap">
+                    <div className="progress-bar-bg">
+                        <div className={`progress-fill ${finalDone ? 'done' : 'running'}`} style={{ width: `${progress * 100}%` }} />
                     </div>
                 </div>
-            )}
+
+                <div className="status-grid">
+                    <div>
+                        <div className="label">Distance:</div>
+                        <div className="value">{status ? status.distance : '—'}</div>
+                    </div>
+                    <div>
+                        <div className="label">Pages visited:</div>
+                        <div className="value">{status ? status.numPages : '—'}</div>
+                    </div>
+                    <div>
+                        <div className="label">Started:</div>
+                        <div className="value">{status ? fmtTime(status.startTimeMillis) : '—'}</div>
+                    </div>
+                    <div>
+                        <div className="label">Last modified:</div>
+                        <div className="value">{status ? fmtTime(status.lastModifiedMillis) : '—'}</div>
+                    </div>
+                    <div>
+                        <div className="label">Elapsed:</div>
+                        <div className="value">{Math.floor(elapsedSec)}s</div>
+                    </div>
+                    <div>
+                        <div className="label">Remaining:</div>
+                        <div className="value">{Math.ceil(remainingSec)}s</div>
+                    </div>
+                </div>
+
+                <div className="stop-reason">
+                    <strong>Stop reason:</strong> {stopReasonText}
+                </div>
+
+                {error && <div className="error">{error}</div>}
+            </div>
         </div>
     );
-}
+};
+
+export default CrawlStatusComponent;

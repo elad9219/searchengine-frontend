@@ -9,31 +9,37 @@
     display: flex;
     gap: 10px;
     margin-bottom: 10px;
+    flex-wrap: wrap; /* Enables wrapping for smaller screens */
+    align-items: center;
 }
 
-input {
+.crawl-form input, .search-form input {
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
     flex: 1;
+    min-width: 120px; /* Minimum width for inputs */
+    box-sizing: border-box; /* Ensures padding and border are included in the element's total width */
 }
 
-button {
+.crawl-form button, .search-form button {
     padding: 8px 16px;
     background-color: #007bff;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
-button:hover {
+.crawl-form button:hover, .search-form button:hover {
     background-color: #0056b3;
 }
 
 .error-message {
     color: red;
     margin-top: 10px;
+    text-align: center;
 }
 
 p {
