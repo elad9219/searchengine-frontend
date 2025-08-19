@@ -13,6 +13,13 @@ h1 {
     color: #333;
 }
 
+.help-button-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+    margin-right: 20px;
+}
+
 p {
     text-align: center;
     margin-bottom: 20px;
@@ -22,5 +29,9 @@ p {
 @media (max-width: 768px) {
     .main-component-container {
         padding: 10px;
+    }
+
+    .help-button-container {
+        margin-right: 10px;
     }
 }

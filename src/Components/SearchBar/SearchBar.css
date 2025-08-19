@@ -10,15 +10,26 @@
     gap: 10px;
     margin-bottom: 10px;
     flex-wrap: wrap; /* Enables wrapping for smaller screens */
-    align-items: center;
+    align-items: flex-start;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 120px; /* Minimum width for inputs */
+}
+
+label {
+    font-size: 12px;
+    color: #333;
+    margin-bottom: 4px;
 }
 
 .crawl-form input, .search-form input {
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    flex: 1;
-    min-width: 120px; /* Minimum width for inputs */
     box-sizing: border-box; /* Ensures padding and border are included in the element's total width */
 }
 
@@ -30,6 +41,7 @@
     border-radius: 4px;
     cursor: pointer;
     flex-shrink: 0;
+    align-self: flex-end;
 }
 
 .crawl-form button:hover, .search-form button:hover {
