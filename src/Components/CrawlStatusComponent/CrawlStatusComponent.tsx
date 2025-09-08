@@ -26,7 +26,6 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
     const visualTimerRef = useRef<number | null>(null);
     const [elapsedVisible, setElapsedVisible] = useState(0);
 
-    // visual timer (progress) independent of server; runs according to maxSeconds passed
     useEffect(() => {
         if (!crawlId) {
             return;
@@ -37,7 +36,6 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
         if (visualTimerRef.current) {
             window.clearInterval(visualTimerRef.current);
         }
-        // Update every 100ms for smoother animation
         visualTimerRef.current = window.setInterval(() => {
             const elapsed = (Date.now() - startedAtRef.current) / 1000;
             setElapsedVisible(elapsed);
@@ -50,7 +48,6 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
         };
     }, [crawlId]);
 
-    // poll server status
     useEffect(() => {
         if (!crawlId) {
             setStatus(null);
@@ -77,7 +74,7 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
                 } else {
                     const data = await res.json();
                     setStatus(data);
-                    setError('');
+                    setError(data.errorMessage || ''); 
                     if (data.stopReason) {
                         if (pollingRef.current) {
                             window.clearInterval(pollingRef.current);
@@ -105,7 +102,6 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
         };
     }, [crawlId]);
 
-    // Use floating point numbers for smoother progress bar
     const elapsedSec = Math.min(elapsedVisible, maxSeconds);
     const remainingSec = Math.max(0, maxSeconds - elapsedSec);
     const progress = clamp01(elapsedSec / Math.max(1, maxSeconds));
