@@ -2,10 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import './CrawlStatusComponent.css';
 import globals from '../../utils/globals';
 import { CrawlStatus } from '../../modal/CrawlStatus';
+import { IconButton } from '@mui/material';
+import { Stop } from '@mui/icons-material';
+import axios from 'axios';
 
 type Props = {
     crawlId: string;
     maxSeconds: number;
+    onStop: () => void;
 };
 
 const fmtTime = (millis?: number) => {
@@ -18,13 +22,15 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 const POLL_MS = 2000;
 
-const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
+const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds, onStop }) => {
     const [status, setStatus] = useState<CrawlStatus | null>(null);
     const [error, setError] = useState('');
     const startedAtRef = useRef<number>(Date.now());
     const pollingRef = useRef<number | null>(null);
     const visualTimerRef = useRef<number | null>(null);
     const [elapsedVisible, setElapsedVisible] = useState(0);
+    const [isRunning, setIsRunning] = useState(true);
+    const finalElapsedRef = useRef<number>(0);
 
     useEffect(() => {
         if (!crawlId) {
@@ -33,12 +39,20 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
 
         startedAtRef.current = Date.now();
         setElapsedVisible(0);
+        setIsRunning(true);
+        finalElapsedRef.current = 0;
         if (visualTimerRef.current) {
             window.clearInterval(visualTimerRef.current);
         }
         visualTimerRef.current = window.setInterval(() => {
-            const elapsed = (Date.now() - startedAtRef.current) / 1000;
-            setElapsedVisible(elapsed);
+            if (isRunning) {
+                const elapsed = (Date.now() - startedAtRef.current) / 1000;
+                setElapsedVisible(elapsed);
+                if (elapsed >= maxSeconds) {
+                    setIsRunning(false);
+                    finalElapsedRef.current = maxSeconds;
+                }
+            }
         }, 100);
 
         return () => {
@@ -46,12 +60,13 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
                 window.clearInterval(visualTimerRef.current);
             }
         };
-    }, [crawlId]);
+    }, [crawlId, maxSeconds]);
 
     useEffect(() => {
         if (!crawlId) {
             setStatus(null);
             setError('');
+            setIsRunning(false);
             if (pollingRef.current) {
                 window.clearInterval(pollingRef.current);
             }
@@ -63,8 +78,10 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
                 const res = await fetch(`${globals.api.getCrawlStatus}/${crawlId}`);
                 if (!res.ok) {
                     if (res.status === 404) {
-                        setStatus(prevStatus => prevStatus ? { ...prevStatus, stopReason: 'timeout' } : null);
+                        setStatus(prev => prev ? { ...prev, stopReason: 'timeout' } : null);
                         setError('');
+                        setIsRunning(false);
+                        finalElapsedRef.current = elapsedVisible;
                         if (pollingRef.current) {
                             window.clearInterval(pollingRef.current);
                         }
@@ -74,8 +91,10 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
                 } else {
                     const data = await res.json();
                     setStatus(data);
-                    setError(data.errorMessage || ''); 
+                    setError(data.errorMessage || '');
                     if (data.stopReason) {
+                        setIsRunning(false);
+                        finalElapsedRef.current = elapsedVisible;
                         if (pollingRef.current) {
                             window.clearInterval(pollingRef.current);
                         }
@@ -83,6 +102,8 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
                 }
             } catch (e) {
                 setError('Failed to fetch status');
+                setIsRunning(false);
+                finalElapsedRef.current = elapsedVisible;
                 if (pollingRef.current) {
                     window.clearInterval(pollingRef.current);
                 }
@@ -102,18 +123,45 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
         };
     }, [crawlId]);
 
-    const elapsedSec = Math.min(elapsedVisible, maxSeconds);
+    const elapsedSec = isRunning ? elapsedVisible : finalElapsedRef.current;
     const remainingSec = Math.max(0, maxSeconds - elapsedSec);
     const progress = clamp01(elapsedSec / Math.max(1, maxSeconds));
-    const finalDone = Boolean(status?.stopReason);
-    const stopReasonText = status?.stopReason ? status.stopReason : '—';
-    const isRunning = !finalDone;
+    const finalDone = Boolean(status?.stopReason || !isRunning && progress >= 1);
+    const stopReasonText = status?.stopReason === 'userInitiated' ? 'userInitiated\nManually stopped by user' : (status?.stopReason || '—');
+
+    const handleStopClick = () => {
+        if (pollingRef.current) {
+            window.clearInterval(pollingRef.current);
+        }
+        if (visualTimerRef.current) {
+            window.clearInterval(visualTimerRef.current);
+        }
+        setIsRunning(false);
+        finalElapsedRef.current = elapsedVisible;
+        setStatus(prev => prev ? { ...prev, stopReason: 'userInitiated', errorMessage: 'Manually stopped by user' } : { stopReason: 'userInitiated', errorMessage: 'Manually stopped by user', distance: 0, numPages: 0, startTimeMillis: Date.now(), lastModifiedMillis: Date.now() });
+        onStop();
+    };
 
     return (
         <div className="crawl-status-root">
             <div className="crawl-status-header">
                 {finalDone ? <div className="finished-mark">✓</div> : null}
                 <h3 className="crawl-status-title">Crawl Status {crawlId ? (<span className="crawl-id"> (ID: {crawlId})</span>) : null}</h3>
+                {!finalDone && isRunning && (
+                    <IconButton
+                        color="error"
+                        onClick={handleStopClick}
+                        sx={{ 
+                            padding: '6px', 
+                            marginLeft: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: '#ff4444',
+                            '&:hover': { backgroundColor: '#cc0000' }
+                        }}
+                    >
+                        <Stop sx={{ fontSize: '20px', color: 'white' }} />
+                    </IconButton>
+                )}
             </div>
 
             <div className="crawl-status-box">
