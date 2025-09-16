@@ -1,18 +1,82 @@
-.crawl-status-root { margin-top: 16px; }
-.crawl-status-header { display:flex; align-items:center; gap:12px; }
-.finished-mark { width:28px; height:28px; border-radius:50%; background:#28a745; color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; }
-.crawl-status-title { margin:0; font-size:16px; }
+.crawl-status-root {
+    margin-top: 16px;
+}
 
-.crawl-status-box { margin-top:10px; padding:12px; background:#fff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+.crawl-status-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 
-.progress-wrap { margin-bottom:10px; }
-.progress-bar-bg { height:10px; background:#eee; border-radius:8px; overflow:hidden; }
-.progress-fill { height:100%; transition: width 0.12s linear; background: linear-gradient(90deg,#007bff,#00d4ff); }
-.progress-fill.done { background: linear-gradient(90deg,#6c757d,#343a40); }
+.finished-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #28a745;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
 
-.status-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-top:10px; }
-.label { font-size:12px; color:#666; }
-.value { font-weight:600; margin-top:4px; }
+.crawl-status-title {
+    margin: 0;
+    font-size: 16px;
+}
 
-.stop-reason { margin-top:12px; font-size:14px; }
-.error { color:#c0392b; margin-top:8px; }
+.crawl-status-box {
+    margin-top: 10px;
+    padding: 12px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.progress-wrap {
+    margin-bottom: 10px;
+}
+
+.progress-bar-bg {
+    height: 10px;
+    background: #eee;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.12s linear;
+    background: linear-gradient(90deg, #007bff, #00d4ff);
+}
+
+.progress-fill.done {
+    background: linear-gradient(90deg, #6c757d, #343a40);
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.label {
+    font-size: 12px;
+    color: #666;
+}
+
+.value {
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.stop-reason {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.error {
+    color: #c0392b;
+    margin-top: 8px;
+}
