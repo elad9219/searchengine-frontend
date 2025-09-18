@@ -42,10 +42,25 @@ label {
     cursor: pointer;
     flex-shrink: 0;
     align-self: flex-end;
+    font-weight: bold;
 }
 
 .crawl-form button:hover, .search-form button:hover {
     background-color: #0056b3;
+}
+
+.toggle-advanced-link {
+    padding: 6px 12px;
+    color: #6c757d;
+    text-decoration: underline;
+    cursor: pointer;
+    align-self: flex-end;
+    font-size: 12px;
+    margin-right: 10px;
+}
+
+.toggle-advanced-link:hover {
+    color: #0056b3;
 }
 
 .error-message {

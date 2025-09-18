@@ -36,6 +36,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
     const [maxUrls, setMaxUrls] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [error, setError] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     const [urlHistory, setUrlHistory] = useState<string[]>(loadHistory(HISTORY_KEY_URL));
     const [distanceHistory, setDistanceHistory] = useState<string[]>(loadHistory(HISTORY_KEY_DISTANCE));
@@ -51,9 +52,9 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         }
         const request: CrawlerRequest = {
             url: url.trim(),
-            maxDistance: maxDistance ? Number(maxDistance) : 2,
+            maxDistance: maxDistance ? Number(maxDistance) : 0, // 0 for unlimited
             maxSeconds: maxSeconds ? Number(maxSeconds) : 60,
-            maxUrls: maxUrls ? Number(maxUrls) : 1000,
+            maxUrls: maxUrls ? Number(maxUrls) : 0, // 0 for unlimited
         };
         try {
             const response = await axios.post(globals.api.crawl, request, { responseType: 'text' });
@@ -99,6 +100,10 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         if (e.key === 'Enter') handleSearch();
     };
 
+    const toggleAdvanced = () => {
+        setShowAdvanced(!showAdvanced);
+    };
+
     return (
         <div className="search-bar-container">
             <div className="crawl-form">
@@ -117,20 +122,6 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                     </datalist>
                 </div>
                 <div className="input-group">
-                    <label>Max crawl depth (e.g., 2)</label>
-                    <input
-                        type="number"
-                        list="distance-history"
-                        placeholder="Max Depth"
-                        value={maxDistance}
-                        onChange={(e) => setMaxDistance(e.target.value)}
-                        onKeyDown={onCrawlKey}
-                    />
-                    <datalist id="distance-history">
-                        {distanceHistory.map((item, index) => <option key={index} value={item} />)}
-                    </datalist>
-                </div>
-                <div className="input-group">
                     <label>Max seconds (e.g., 60)</label>
                     <input
                         type="number"
@@ -144,20 +135,41 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                         {secondsHistory.map((item, index) => <option key={index} value={item} />)}
                     </datalist>
                 </div>
-                <div className="input-group">
-                    <label>Max URLs (e.g., 1000)</label>
-                    <input
-                        type="number"
-                        list="urls-history"
-                        placeholder="Max URLs"
-                        value={maxUrls}
-                        onChange={(e) => setMaxUrls(e.target.value)}
-                        onKeyDown={onCrawlKey}
-                    />
-                    <datalist id="urls-history">
-                        {urlsHistory.map((item, index) => <option key={index} value={item} />)}
-                    </datalist>
-                </div>
+                {showAdvanced && (
+                    <>
+                        <div className="input-group">
+                            <label>Max crawl depth (e.g., 2)</label>
+                            <input
+                                type="number"
+                                list="distance-history"
+                                placeholder="Max Depth"
+                                value={maxDistance}
+                                onChange={(e) => setMaxDistance(e.target.value)}
+                                onKeyDown={onCrawlKey}
+                            />
+                            <datalist id="distance-history">
+                                {distanceHistory.map((item, index) => <option key={index} value={item} />)}
+                            </datalist>
+                        </div>
+                        <div className="input-group">
+                            <label>Max URLs (e.g., 1000)</label>
+                            <input
+                                type="number"
+                                list="urls-history"
+                                placeholder="Max URLs"
+                                value={maxUrls}
+                                onChange={(e) => setMaxUrls(e.target.value)}
+                                onKeyDown={onCrawlKey}
+                            />
+                            <datalist id="urls-history">
+                                {urlsHistory.map((item, index) => <option key={index} value={item} />)}
+                            </datalist>
+                        </div>
+                    </>
+                )}
+                <a href="#" className="toggle-advanced-link" onClick={(e) => { e.preventDefault(); toggleAdvanced(); }}>
+                    {showAdvanced ? 'Hide Advanced' : 'Advanced'}
+                </a>
                 <button onClick={handleCrawl}>Start Crawl</button>
             </div>
             <div className="search-form">
