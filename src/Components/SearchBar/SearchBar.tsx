@@ -52,9 +52,9 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         }
         const request: CrawlerRequest = {
             url: url.trim(),
-            maxDistance: maxDistance ? Number(maxDistance) : 0, // 0 for unlimited
+            maxDistance: maxDistance ? Number(maxDistance) : -1, // -1 for unlimited
             maxSeconds: maxSeconds ? Number(maxSeconds) : 60,
-            maxUrls: maxUrls ? Number(maxUrls) : 0, // 0 for unlimited
+            maxUrls: maxUrls ? Number(maxUrls) : -1, // -1 for unlimited
         };
         try {
             const response = await axios.post(globals.api.crawl, request, { responseType: 'text' });
@@ -104,6 +104,48 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         setShowAdvanced(!showAdvanced);
     };
 
+    // Validate and update maxSeconds (1-9999)
+    const handleMaxSecondsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (value === '') {
+            setMaxSeconds('');
+            return;
+        }
+        const num = Number(value);
+        if (!isNaN(num) && num >= 1 && num <= 9999) {
+            setMaxSeconds(value);
+        }
+        // Ignore invalid input
+    };
+
+    // Validate and update maxDistance (1-99)
+    const handleMaxDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (value === '') {
+            setMaxDistance('');
+            return;
+        }
+        const num = Number(value);
+        if (!isNaN(num) && num >= 1 && num <= 99) {
+            setMaxDistance(value);
+        }
+        // Ignore invalid input
+    };
+
+    // Validate and update maxUrls (1-99999999)
+    const handleMaxUrlsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (value === '') {
+            setMaxUrls('');
+            return;
+        }
+        const num = Number(value);
+        if (!isNaN(num) && num >= 1 && num <= 99999999) {
+            setMaxUrls(value);
+        }
+        // Ignore invalid input
+    };
+
     return (
         <div className="search-bar-container">
             <div className="crawl-form">
@@ -128,8 +170,10 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                         list="seconds-history"
                         placeholder="Max Seconds"
                         value={maxSeconds}
-                        onChange={(e) => setMaxSeconds(e.target.value)}
+                        onChange={handleMaxSecondsChange}
                         onKeyDown={onCrawlKey}
+                        min="1"
+                        max="9999"
                     />
                     <datalist id="seconds-history">
                         {secondsHistory.map((item, index) => <option key={index} value={item} />)}
@@ -144,8 +188,10 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                                 list="distance-history"
                                 placeholder="Max Depth"
                                 value={maxDistance}
-                                onChange={(e) => setMaxDistance(e.target.value)}
+                                onChange={handleMaxDistanceChange}
                                 onKeyDown={onCrawlKey}
+                                min="1"
+                                max="99"
                             />
                             <datalist id="distance-history">
                                 {distanceHistory.map((item, index) => <option key={index} value={item} />)}
@@ -158,8 +204,10 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                                 list="urls-history"
                                 placeholder="Max URLs"
                                 value={maxUrls}
-                                onChange={(e) => setMaxUrls(e.target.value)}
+                                onChange={handleMaxUrlsChange}
                                 onKeyDown={onCrawlKey}
+                                min="1"
+                                max="99999999"
                             />
                             <datalist id="urls-history">
                                 {urlsHistory.map((item, index) => <option key={index} value={item} />)}
