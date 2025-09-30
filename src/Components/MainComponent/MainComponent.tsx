@@ -64,27 +64,25 @@ const MainComponent: React.FC = () => {
             </div>
             <Dialog open={openHelp} onClose={handleCloseHelp}>
                 <DialogTitle sx={{ textAlign: 'center' }}>How to Use the Web Search Engine</DialogTitle>
-                <DialogContent sx={{ padding: '24px' }}>
-                    <p style={{ lineHeight: 1.6, marginBottom: '16px' }}>
-                        Follow these steps to crawl a website and search for content:
-                    </p>
-                    <ol style={{ lineHeight: 1.6, marginBottom: '16px' }}>
-                        <li><strong>Start Crawling:</strong> Enter a website URL (e.g., ynet.co.il) and set optional parameters:
-                            <ul style={{ marginTop: '8px', marginBottom: '8px' }}>
-                                <li><strong>Max Depth:</strong> How many links deep to crawl (default: 2).</li>
-                                <li><strong>Max Seconds:</strong> Maximum time for crawling (default: 60).</li>
-                                <li><strong>Max URLs:</strong> Maximum number of pages to crawl (default: 1000).</li>
-                            </ul>
-                            Click "Start Crawl" to begin.
-                        </li>
-                        <li><strong>Search Content:</strong> After crawling, enter a keyword (e.g., news) in the search field and click "Search" to find matching pages.</li>
-                        <li><strong>View Results:</strong> See the crawl status and search results below.</li>
-                        <li><strong>Stop Crawl:</strong> Click the stop icon (⏹️) to halt an active crawl if needed.</li>
-                    </ol>
-                    <p style={{ lineHeight: 1.6, marginBottom: '16px' }}>
-                        Tip: Click on any input field to see recent values you used.
-                    </p>
-                </DialogContent>
+            <DialogContent sx={{ padding: '24px' }}>
+                <p style={{ lineHeight: 1.6, marginBottom: '16px' }}>
+                    Follow these steps to crawl a website and search for content:
+                </p>
+                <ol style={{ lineHeight: 1.6, marginBottom: '16px' }}>
+                    <li><strong>Start Crawling:</strong> Enter a website URL (e.g., ynet.co.il) and set max seconds (1-9999, default: 60) to limit crawl duration.
+                        <ul style={{ marginTop: '8px', marginBottom: '8px' }}>
+                            <li>Click "Advanced" to optionally set max crawl depth (1-99) and max URLs (1-99999999).</li>
+                        </ul>
+                        Click "Start Crawl" to begin.
+                    </li>
+                    <li><strong>Search Content:</strong> After crawling, enter a keyword (e.g., news) in the search field and click "Search" to find matching pages.</li>
+                    <li><strong>View Results:</strong> See the crawl status and search results below.</li>
+                    <li><strong>Stop Crawl:</strong> Click the stop icon (⏹️) to halt an active crawl if needed.</li>
+                </ol>
+                <p style={{ lineHeight: 1.6, marginBottom: '16px' }}>
+                    Tip: Click on any input field to see recent values you used.
+                </p>
+            </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseHelp}>Close</Button>
                 </DialogActions>
