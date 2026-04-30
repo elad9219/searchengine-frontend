@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SearchBar from '../SearchBar/SearchBar';
 import CrawlStatusComponent from '../CrawlStatusComponent/CrawlStatusComponent';
 import SearchResults from '../SearchResults/SearchResults';
@@ -6,7 +6,7 @@ import { Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import './MainComponent.css';
 import { SearchResult } from '../../modal/SearchResult';
-import axios from 'axios';
+import axiosInstance from '../../utils/axiosInstance';
 import globals from '../../utils/globals';
 
 const MainComponent: React.FC = () => {
@@ -16,6 +16,23 @@ const MainComponent: React.FC = () => {
     const [currentMaxSeconds, setCurrentMaxSeconds] = useState<number>(60);
     const [openHelp, setOpenHelp] = useState(false);
     const [isStopped, setIsStopped] = useState(false);
+    
+    // Cold start state
+    const [isWakingUp, setIsWakingUp] = useState(false);
+
+    // Listeners for cold start events
+    useEffect(() => {
+        const handleWakeUp = () => setIsWakingUp(true);
+        const handleAwake = () => setIsWakingUp(false);
+
+        window.addEventListener('serverWakingUp', handleWakeUp);
+        window.addEventListener('serverAwake', handleAwake);
+
+        return () => {
+            window.removeEventListener('serverWakingUp', handleWakeUp);
+            window.removeEventListener('serverAwake', handleAwake);
+        };
+    }, []);
 
     const handleCrawlStarted = (id: string, maxSeconds: number | null) => {
         setCrawlId(id || '');
@@ -36,7 +53,7 @@ const MainComponent: React.FC = () => {
     const handleStopCrawl = async () => {
         if (crawlId && !isStopped) {
             try {
-                await axios.post(`${globals.api.getCrawlStatus}/${crawlId}/stop`);
+                await axiosInstance.post(`${globals.api.getCrawlStatus}/${crawlId}/stop`);
                 setIsStopped(true);
             } catch (error) {
                 console.error('Failed to stop crawl:', error);
@@ -47,6 +64,13 @@ const MainComponent: React.FC = () => {
     return (
         <div className="main-component-container">
             <h1>Web Search Engine</h1>
+            
+            {isWakingUp && (
+                <div className="waking-up-msg">
+                    ⏳ The free server is waking up (this may take ~30 seconds), please wait...
+                </div>
+            )}
+
             <div className="help-button-container">
                 <Button
                     variant="contained"
@@ -58,6 +82,7 @@ const MainComponent: React.FC = () => {
                         fontSize: '13px'
                     }}
                     onClick={handleOpenHelp}
+                    disabled={isWakingUp}
                 >
                     Help
                 </Button>
@@ -87,7 +112,7 @@ const MainComponent: React.FC = () => {
                     <Button onClick={handleCloseHelp}>Close</Button>
                 </DialogActions>
             </Dialog>
-            <SearchBar onCrawlStarted={handleCrawlStarted} onSearch={handleSearch} />
+            <SearchBar onCrawlStarted={handleCrawlStarted} onSearch={handleSearch} disabled={isWakingUp} />
             {crawlId ? <CrawlStatusComponent key={crawlId} crawlId={crawlId} maxSeconds={currentMaxSeconds} onStop={handleStopCrawl} /> : null}
             <SearchResults results={searchResults} searchPerformed={searchPerformed} />
         </div>

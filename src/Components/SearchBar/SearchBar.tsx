@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../utils/axiosInstance';
 import globals from '../../utils/globals';
 import { CrawlerRequest } from '../../modal/CrawlerRequest';
 import { SearchResult } from '../../modal/SearchResult';
@@ -27,9 +27,10 @@ const saveHistory = (key: string, value: string, history: string[]) => {
 interface Props {
     onCrawlStarted: (id: string, maxSeconds: number | null) => void;
     onSearch: (results: SearchResult[], performed: boolean) => void;
+    disabled?: boolean;
 }
 
-const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
+const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
     const [url, setUrl] = useState('');
     const [maxDistance, setMaxDistance] = useState('');
     const [maxSeconds, setMaxSeconds] = useState('');
@@ -52,12 +53,12 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         }
         const request: CrawlerRequest = {
             url: url.trim(),
-            maxDistance: maxDistance ? Number(maxDistance) : -1, // -1 for unlimited
+            maxDistance: maxDistance ? Number(maxDistance) : -1,
             maxSeconds: maxSeconds ? Number(maxSeconds) : 60,
-            maxUrls: maxUrls ? Number(maxUrls) : -1, // -1 for unlimited
+            maxUrls: maxUrls ? Number(maxUrls) : -1,
         };
         try {
-            const response = await axios.post(globals.api.crawl, request, { responseType: 'text' });
+            const response = await axiosInstance.post(globals.api.crawl, request, { responseType: 'text' });
             const id = response.data;
             onCrawlStarted(id, request.maxSeconds);
             saveHistory(HISTORY_KEY_URL, url, urlHistory);
@@ -81,7 +82,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
             return;
         }
         try {
-            const response = await axios.get(globals.api.search, { params: { query: searchQuery.trim() } });
+            const response = await axiosInstance.get(globals.api.search, { params: { query: searchQuery.trim() } });
             onSearch(response.data || [], true);
             saveHistory(HISTORY_KEY_QUERY, searchQuery, queryHistory);
             setQueryHistory(loadHistory(HISTORY_KEY_QUERY));
@@ -104,7 +105,6 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         setShowAdvanced(!showAdvanced);
     };
 
-    // Validate and update maxSeconds (1-9999)
     const handleMaxSecondsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         if (value === '') {
@@ -115,10 +115,8 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         if (!isNaN(num) && num >= 1 && num <= 9999) {
             setMaxSeconds(value);
         }
-        // Ignore invalid input
     };
 
-    // Validate and update maxDistance (1-99)
     const handleMaxDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         if (value === '') {
@@ -129,10 +127,8 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         if (!isNaN(num) && num >= 1 && num <= 99) {
             setMaxDistance(value);
         }
-        // Ignore invalid input
     };
 
-    // Validate and update maxUrls (1-99999999)
     const handleMaxUrlsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         if (value === '') {
@@ -143,7 +139,6 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
         if (!isNaN(num) && num >= 1 && num <= 99999999) {
             setMaxUrls(value);
         }
-        // Ignore invalid input
     };
 
     return (
@@ -158,6 +153,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         onKeyDown={onCrawlKey}
+                        disabled={disabled}
                     />
                     <datalist id="url-history">
                         {urlHistory.map((item, index) => <option key={index} value={item} />)}
@@ -174,6 +170,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                         onKeyDown={onCrawlKey}
                         min="1"
                         max="9999"
+                        disabled={disabled}
                     />
                     <datalist id="seconds-history">
                         {secondsHistory.map((item, index) => <option key={index} value={item} />)}
@@ -192,6 +189,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                                 onKeyDown={onCrawlKey}
                                 min="1"
                                 max="99"
+                                disabled={disabled}
                             />
                             <datalist id="distance-history">
                                 {distanceHistory.map((item, index) => <option key={index} value={item} />)}
@@ -208,6 +206,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                                 onKeyDown={onCrawlKey}
                                 min="1"
                                 max="99999999"
+                                disabled={disabled}
                             />
                             <datalist id="urls-history">
                                 {urlsHistory.map((item, index) => <option key={index} value={item} />)}
@@ -218,7 +217,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                 <a href="#" className="toggle-advanced-link" onClick={(e) => { e.preventDefault(); toggleAdvanced(); }}>
                     {showAdvanced ? 'Hide Advanced' : 'Advanced'}
                 </a>
-                <button onClick={handleCrawl}>Start Crawl</button>
+                <button onClick={handleCrawl} disabled={disabled}>Start Crawl</button>
             </div>
             <div className="search-form">
                 <div className="input-group">
@@ -230,12 +229,13 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch }) => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={onSearchKey}
+                        disabled={disabled}
                     />
                     <datalist id="query-history">
                         {queryHistory.map((item, index) => <option key={index} value={item} />)}
                     </datalist>
                 </div>
-                <button onClick={handleSearch}>Search</button>
+                <button onClick={handleSearch} disabled={disabled}>Search</button>
             </div>
             {error && <p className="error-message">{error}</p>}
         </div>

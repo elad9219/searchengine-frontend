@@ -4,7 +4,7 @@ import globals from '../../utils/globals';
 import { CrawlStatus } from '../../modal/CrawlStatus';
 import { IconButton } from '@mui/material';
 import { Stop } from '@mui/icons-material';
-import axios from 'axios';
+import axiosInstance from '../../utils/axiosInstance';
 
 type Props = {
     crawlId: string;
@@ -75,37 +75,33 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds, onStop }) 
 
         const fetchStatus = async () => {
             try {
-                const res = await fetch(`${globals.api.getCrawlStatus}/${crawlId}`);
-                if (!res.ok) {
-                    if (res.status === 404) {
-                        setStatus(prev => prev ? { ...prev, stopReason: 'timeout' } : null);
-                        setError('');
-                        setIsRunning(false);
-                        finalElapsedRef.current = elapsedVisible;
-                        if (pollingRef.current) {
-                            window.clearInterval(pollingRef.current);
-                        }
-                    } else {
-                        throw new Error(`HTTP ${res.status}`);
-                    }
-                } else {
-                    const data = await res.json();
-                    setStatus(data);
-                    setError(data.errorMessage || '');
-                    if (data.stopReason) {
-                        setIsRunning(false);
-                        finalElapsedRef.current = elapsedVisible;
-                        if (pollingRef.current) {
-                            window.clearInterval(pollingRef.current);
-                        }
+                const res = await axiosInstance.get(`${globals.api.getCrawlStatus}/${crawlId}`);
+                const data = res.data;
+                setStatus(data);
+                setError(data.errorMessage || '');
+                if (data.stopReason) {
+                    setIsRunning(false);
+                    finalElapsedRef.current = elapsedVisible;
+                    if (pollingRef.current) {
+                        window.clearInterval(pollingRef.current);
                     }
                 }
-            } catch (e) {
-                setError('Failed to fetch status');
-                setIsRunning(false);
-                finalElapsedRef.current = elapsedVisible;
-                if (pollingRef.current) {
-                    window.clearInterval(pollingRef.current);
+            } catch (e: any) {
+                if (e.response && e.response.status === 404) {
+                    setStatus(prev => prev ? { ...prev, stopReason: 'timeout' } : null);
+                    setError('');
+                    setIsRunning(false);
+                    finalElapsedRef.current = elapsedVisible;
+                    if (pollingRef.current) {
+                        window.clearInterval(pollingRef.current);
+                    }
+                } else {
+                    setError('Failed to fetch status');
+                    setIsRunning(false);
+                    finalElapsedRef.current = elapsedVisible;
+                    if (pollingRef.current) {
+                        window.clearInterval(pollingRef.current);
+                    }
                 }
             }
         };
