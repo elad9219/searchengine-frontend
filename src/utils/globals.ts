@@ -24,9 +24,9 @@ export class ProductionGlobals extends Globals {
     constructor() {
         super();
         this.api = {
-            crawl: 'https://search.runmydocker-app.com/api/crawl',
-            getCrawlStatus: 'https://search.runmydocker-app.com/api/crawl',
-            search: 'https://search.runmydocker-app.com/api/search',
+            crawl: 'https://esearch.runmydocker-app.com/api/crawl',
+            getCrawlStatus: 'https://esearch.runmydocker-app.com/api/crawl',
+            search: 'https://esearch.runmydocker-app.com/api/search',
         };
     }
 }
