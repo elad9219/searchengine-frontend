@@ -1,154 +1,116 @@
 import React, { useEffect, useRef, useState } from 'react';
-import './CrawlStatusComponent.css';
-import globals from '../../utils/globals';
-import { CrawlStatus } from '../../modal/CrawlStatus';
+import axios from 'axios';
 import { IconButton } from '@mui/material';
 import { Stop } from '@mui/icons-material';
+import { CrawlStatus } from '../../modal/CrawlStatus';
 import axiosInstance from '../../utils/axiosInstance';
+import globals from '../../utils/globals';
+import './CrawlStatusComponent.css';
 
 type Props = {
     crawlId: string;
     maxSeconds: number;
-    onStop: () => void;
 };
 
-const fmtTime = (millis?: number) => {
-    if (!millis || millis <= 0) return '—';
-    const d = new Date(millis);
-    return d.toLocaleString();
-};
-
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+type StatusResponse = CrawlStatus & { errorMessage?: string | null };
 
 const POLL_MS = 2000;
 
-const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds, onStop }) => {
-    const [status, setStatus] = useState<CrawlStatus | null>(null);
-    const [error, setError] = useState('');
-    const startedAtRef = useRef<number>(Date.now());
-    const pollingRef = useRef<number | null>(null);
-    const visualTimerRef = useRef<number | null>(null);
-    const [elapsedVisible, setElapsedVisible] = useState(0);
-    const [isRunning, setIsRunning] = useState(true);
-    const finalElapsedRef = useRef<number>(0);
+const formatTime = (millis?: number) =>
+    millis && millis > 0 ? new Date(millis).toLocaleString() : '—';
+
+const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
+    const [status, setStatus] = useState<StatusResponse | null>(null);
+    const [now, setNow] = useState(Date.now);
+    const [statusError, setStatusError] = useState('');
+    const [stopError, setStopError] = useState('');
+    const [missing, setMissing] = useState(false);
+    const [stopping, setStopping] = useState(false);
+    const stopRequest = useRef<AbortController | null>(null);
+    const statusUrl = `${globals.api.getCrawlStatus}/${encodeURIComponent(crawlId)}`;
+    const finished = Boolean(status?.stopReason);
+    const running = !finished && !missing;
 
     useEffect(() => {
-        if (!crawlId) {
-            return;
-        }
-
-        startedAtRef.current = Date.now();
-        setElapsedVisible(0);
-        setIsRunning(true);
-        finalElapsedRef.current = 0;
-        if (visualTimerRef.current) {
-            window.clearInterval(visualTimerRef.current);
-        }
-        visualTimerRef.current = window.setInterval(() => {
-            if (isRunning) {
-                const elapsed = (Date.now() - startedAtRef.current) / 1000;
-                setElapsedVisible(elapsed);
-                if (elapsed >= maxSeconds) {
-                    setIsRunning(false);
-                    finalElapsedRef.current = maxSeconds;
-                }
-            }
-        }, 100);
-
-        return () => {
-            if (visualTimerRef.current) {
-                window.clearInterval(visualTimerRef.current);
-            }
-        };
-    }, [crawlId, maxSeconds]);
-
-    useEffect(() => {
-        if (!crawlId) {
-            setStatus(null);
-            setError('');
-            setIsRunning(false);
-            if (pollingRef.current) {
-                window.clearInterval(pollingRef.current);
-            }
-            return;
-        }
+        const controller = new AbortController();
+        let nextPoll: number | undefined;
 
         const fetchStatus = async () => {
             try {
-                const res = await axiosInstance.get(`${globals.api.getCrawlStatus}/${crawlId}`);
-                const data = res.data;
+                const { data } = await axiosInstance.get<StatusResponse>(statusUrl, {
+                    signal: controller.signal
+                });
+                if (controller.signal.aborted) return;
                 setStatus(data);
-                setError(data.errorMessage || '');
-                if (data.stopReason) {
-                    setIsRunning(false);
-                    finalElapsedRef.current = elapsedVisible;
-                    if (pollingRef.current) {
-                        window.clearInterval(pollingRef.current);
-                    }
+                setNow(Date.now());
+                setStatusError('');
+                if (data.stopReason) return;
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                if (axios.isAxiosError(error) && error.response?.status === 404) {
+                    setMissing(true);
+                    setStatusError('This crawl was not found or has expired.');
+                    return;
                 }
-            } catch (e: any) {
-                if (e.response && e.response.status === 404) {
-                    setStatus(prev => prev ? { ...prev, stopReason: 'timeout' } : null);
-                    setError('');
-                    setIsRunning(false);
-                    finalElapsedRef.current = elapsedVisible;
-                    if (pollingRef.current) {
-                        window.clearInterval(pollingRef.current);
-                    }
-                } else {
-                    setError('Failed to fetch status');
-                    setIsRunning(false);
-                    finalElapsedRef.current = elapsedVisible;
-                    if (pollingRef.current) {
-                        window.clearInterval(pollingRef.current);
-                    }
-                }
+                setStatusError('Could not fetch crawl status. Retrying…');
             }
+            nextPoll = window.setTimeout(fetchStatus, POLL_MS);
         };
 
-        fetchStatus();
-        if (pollingRef.current) {
-            window.clearInterval(pollingRef.current);
-        }
-        pollingRef.current = window.setInterval(fetchStatus, POLL_MS);
+        void fetchStatus();
 
         return () => {
-            if (pollingRef.current) {
-                window.clearInterval(pollingRef.current);
-            }
+            controller.abort();
+            window.clearTimeout(nextPoll);
+            stopRequest.current?.abort();
         };
-    }, [crawlId]);
+    }, [statusUrl]);
 
-    const elapsedSec = isRunning ? elapsedVisible : finalElapsedRef.current;
-    const remainingSec = Math.max(0, maxSeconds - elapsedSec);
-    const progress = clamp01(elapsedSec / Math.max(1, maxSeconds));
-    const finalDone = Boolean(status?.stopReason || !isRunning && progress >= 1);
-    const stopReasonText = status?.stopReason === 'userInitiated' ? 'userInitiated\nManually stopped by user' : (status?.stopReason || '—');
+    useEffect(() => {
+        if (!running) return;
+        const timer = window.setInterval(() => setNow(Date.now()), 250);
+        return () => window.clearInterval(timer);
+    }, [running]);
 
-    const handleStopClick = () => {
-        if (pollingRef.current) {
-            window.clearInterval(pollingRef.current);
+    const elapsed = status
+        ? Math.max(0, ((finished ? status.lastModifiedMillis : now) - status.startTimeMillis) / 1000)
+        : 0;
+    const elapsedSeconds = finished ? elapsed : Math.min(elapsed, maxSeconds);
+    const remainingSeconds = finished ? 0 : Math.max(0, maxSeconds - elapsedSeconds);
+    const progress = finished ? 100 : 100 * elapsedSeconds / Math.max(1, maxSeconds);
+
+    const handleStopClick = async () => {
+        if (!running || stopRequest.current) return;
+        const controller = new AbortController();
+        stopRequest.current = controller;
+        setStopping(true);
+        setStopError('');
+
+        try {
+            await axiosInstance.post(`${statusUrl}/stop`, undefined, { signal: controller.signal });
+        } catch {
+            if (controller.signal.aborted) return;
+            stopRequest.current = null;
+            setStopping(false);
+            setStopError('Could not confirm the stop request. Checking crawl status.');
         }
-        if (visualTimerRef.current) {
-            window.clearInterval(visualTimerRef.current);
-        }
-        setIsRunning(false);
-        finalElapsedRef.current = elapsedVisible;
-        setStatus(prev => prev ? { ...prev, stopReason: 'userInitiated', errorMessage: 'Manually stopped by user' } : { stopReason: 'userInitiated', errorMessage: 'Manually stopped by user', distance: 0, numPages: 0, startTimeMillis: Date.now(), lastModifiedMillis: Date.now() });
-        onStop();
     };
 
     return (
         <div className="crawl-status-root">
             <div className="crawl-status-header">
-                {finalDone ? <div className="finished-mark">✓</div> : null}
-                <h3 className="crawl-status-title">Crawl Status {crawlId ? (<span className="crawl-id"> (ID: {crawlId})</span>) : null}</h3>
-                {!finalDone && isRunning && (
+                {finished && status?.stopReason !== 'error' && <div className="finished-mark">✓</div>}
+                <h3 className="crawl-status-title">
+                    Crawl Status <span className="crawl-id">(ID: {crawlId})</span>
+                </h3>
+                {running && (
                     <IconButton
                         color="error"
+                        aria-label={stopping ? 'Stopping crawl' : 'Stop crawl'}
                         onClick={handleStopClick}
-                        sx={{ 
-                            padding: '6px', 
+                        disabled={stopping}
+                        sx={{
+                            padding: '6px',
                             marginLeft: '10px',
                             borderRadius: '50%',
                             backgroundColor: '#ff4444',
@@ -163,42 +125,47 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds, onStop }) 
             <div className="crawl-status-box">
                 <div className="progress-wrap">
                     <div className="progress-bar-bg">
-                        <div className={`progress-fill ${finalDone ? 'done' : 'running'}`} style={{ width: `${progress * 100}%` }} />
+                        <div
+                            className={`progress-fill ${finished ? 'done' : 'running'}`}
+                            style={{ width: `${progress}%` }}
+                        />
                     </div>
                 </div>
 
                 <div className="status-grid">
                     <div>
                         <div className="label">Distance:</div>
-                        <div className="value">{status ? status.distance : '—'}</div>
+                        <div className="value">{status?.distance ?? '—'}</div>
                     </div>
                     <div>
                         <div className="label">Pages visited:</div>
-                        <div className="value">{status ? status.numPages : '—'}</div>
+                        <div className="value">{status?.numPages ?? '—'}</div>
                     </div>
                     <div>
                         <div className="label">Started:</div>
-                        <div className="value">{status ? fmtTime(status.startTimeMillis) : '—'}</div>
+                        <div className="value">{formatTime(status?.startTimeMillis)}</div>
                     </div>
                     <div>
                         <div className="label">Last modified:</div>
-                        <div className="value">{status ? fmtTime(status.lastModifiedMillis) : '—'}</div>
+                        <div className="value">{formatTime(status?.lastModifiedMillis)}</div>
                     </div>
                     <div>
                         <div className="label">Elapsed:</div>
-                        <div className="value">{Math.floor(elapsedSec)}s</div>
+                        <div className="value">{status && !missing ? `${Math.floor(elapsedSeconds)}s` : '—'}</div>
                     </div>
                     <div>
                         <div className="label">Remaining:</div>
-                        <div className="value">{Math.ceil(remainingSec)}s</div>
+                        <div className="value">{status && !missing ? `${Math.ceil(remainingSeconds)}s` : '—'}</div>
                     </div>
                 </div>
 
                 <div className="stop-reason">
-                    <strong>Stop reason:</strong> {stopReasonText}
+                    <strong>Stop reason:</strong> {status?.stopReason || '—'}
                 </div>
 
-                {error && <div className="error">{error}</div>}
+                {statusError && <div className="error" role="status">{statusError}</div>}
+                {!finished && !missing && stopError && <div className="error" role="status">{stopError}</div>}
+                {status?.errorMessage && <div className="error" role="status">{status.errorMessage}</div>}
             </div>
         </div>
     );
