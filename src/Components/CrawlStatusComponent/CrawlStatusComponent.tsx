@@ -29,6 +29,7 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
     const stopRequest = useRef<AbortController | null>(null);
     const statusUrl = `${globals.api.getCrawlStatus}/${encodeURIComponent(crawlId)}`;
     const finished = Boolean(status?.stopReason);
+    const stoppedByUser = status?.stopReason === 'userInitiated';
     const running = !finished && !missing;
 
     useEffect(() => {
@@ -165,7 +166,11 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
 
                 {statusError && <div className="error" role="status">{statusError}</div>}
                 {!finished && !missing && stopError && <div className="error" role="status">{stopError}</div>}
-                {status?.errorMessage && <div className="error" role="status">{status.errorMessage}</div>}
+                {status?.errorMessage && (
+                    <div className={stoppedByUser ? 'crawl-notice' : 'error'} role="status">
+                        {status.errorMessage}
+                    </div>
+                )}
             </div>
         </div>
     );

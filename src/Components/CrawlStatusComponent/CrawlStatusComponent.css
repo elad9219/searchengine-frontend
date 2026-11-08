@@ -9,6 +9,7 @@
 }
 
 .finished-mark {
+    flex: 0 0 28px;
     width: 28px;
     height: 28px;
     border-radius: 50%;
@@ -23,6 +24,8 @@
 .crawl-status-title {
     margin: 0;
     font-size: 16px;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .crawl-status-box {
@@ -56,7 +59,7 @@
 
 .status-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
     gap: 10px;
     margin-top: 10px;
 }
@@ -69,6 +72,7 @@
 .value {
     font-weight: 600;
     margin-top: 4px;
+    overflow-wrap: anywhere;
 }
 
 .stop-reason {
@@ -79,4 +83,21 @@
 .error {
     color: #c0392b;
     margin-top: 8px;
+}
+
+.crawl-notice {
+    color: #475569;
+    margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+    .status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .progress-fill {
+        transition: none;
+    }
 }
