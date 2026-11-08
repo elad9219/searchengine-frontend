@@ -45,11 +45,13 @@ label {
     font-weight: bold;
 }
 
-.crawl-form button:hover, .search-form button:hover {
+.crawl-form button:enabled:hover, .search-form button:enabled:hover {
     background-color: #0056b3;
 }
 
-.toggle-advanced-link {
+.crawl-form .toggle-advanced-link {
+    background: transparent;
+    font-weight: normal;
     padding: 6px 12px;
     color: #6c757d;
     text-decoration: underline;
@@ -59,8 +61,14 @@ label {
     margin-right: 10px;
 }
 
-.toggle-advanced-link:hover {
+.crawl-form .toggle-advanced-link:enabled:hover {
+    background: transparent;
     color: #0056b3;
+}
+
+.crawl-form button:disabled, .search-form button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .error-message {
