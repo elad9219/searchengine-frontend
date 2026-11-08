@@ -12,6 +12,12 @@ const isHtml = (data: unknown): boolean =>
 
 const isTransient = (error: unknown): boolean => {
     if (axios.isCancel(error) || !axios.isAxiosError(error)) return false;
+    // A Spring search error means the application is awake but search is unavailable.
+    if (error.response?.status === 503
+        && error.response.data?.status === 503
+        && error.response.data?.path === '/api/search') {
+        return false;
+    }
     return error.response
         ? [502, 503, 504].includes(error.response.status)
         : ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code || '');

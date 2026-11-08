@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import axiosInstance from '../../utils/axiosInstance';
 import globals from '../../utils/globals';
+import { crawlLimits, maxCrawlUrlLength, maxSearchQueryLength } from '../../utils/demoLimits';
 import { CrawlerRequest } from '../../modal/CrawlerRequest';
 import { SearchResult } from '../../modal/SearchResult';
 import './SearchBar.css';
@@ -32,6 +34,43 @@ const saveHistory = (key: string, value: string, history: string[]): string[] =>
     return updated;
 };
 
+type CrawlLimit = typeof crawlLimits.seconds;
+
+const withinLimit = (value: number, limit: CrawlLimit): boolean =>
+    Number.isInteger(value) && value >= limit.min && value <= limit.max;
+
+interface LimitInputProps {
+    id: string;
+    label: string;
+    limit: CrawlLimit;
+    value: string;
+    history: string[];
+    disabled?: boolean;
+    onChange: (value: string) => void;
+}
+
+const LimitInput = ({ id, label, limit, value, history, disabled, onChange }: LimitInputProps) => (
+    <div className="input-group">
+        <label htmlFor={id}>{label} ({limit.min}–{limit.max})</label>
+        <input
+            id={id}
+            type="number"
+            list={id + '-history'}
+            placeholder={`Default: ${limit.defaultValue}`}
+            value={value}
+            onChange={event => onChange(event.target.value)}
+            min={limit.min}
+            max={limit.max}
+            step={1}
+            disabled={disabled}
+        />
+        <datalist id={id + '-history'}>
+            {history.filter(item => withinLimit(Number(item), limit))
+                .map((item, index) => <option key={index} value={item} />)}
+        </datalist>
+    </div>
+);
+
 interface Props {
     onCrawlStarted: (id: string, maxSeconds: number | null) => void;
     onSearch: (results: SearchResult[], performed: boolean) => void;
@@ -61,17 +100,35 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
         if (disabled || requestInFlight.current) return;
 
         setError('');
-        if (!url.trim()) {
+        const targetUrl = url.trim();
+        if (!targetUrl) {
             setError('Please enter a URL to crawl.');
             return;
         }
 
+        if (targetUrl.length > maxCrawlUrlLength) {
+            setError(`Use a URL of ${maxCrawlUrlLength} characters or fewer.`);
+            return;
+        }
+
         const request: CrawlerRequest = {
-            url: url.trim(),
-            maxDistance: maxDistance ? Number(maxDistance) : -1,
-            maxSeconds: maxSeconds ? Number(maxSeconds) : 60,
-            maxUrls: maxUrls ? Number(maxUrls) : -1
+            url: targetUrl,
+            maxDistance: maxDistance === '' ? crawlLimits.depth.defaultValue : Number(maxDistance),
+            maxSeconds: maxSeconds === '' ? crawlLimits.seconds.defaultValue : Number(maxSeconds),
+            maxUrls: maxUrls === '' ? crawlLimits.urls.defaultValue : Number(maxUrls)
         };
+
+        const limits = [
+            { value: request.maxSeconds, limit: crawlLimits.seconds, label: 'Max seconds', advanced: false },
+            { value: request.maxDistance, limit: crawlLimits.depth, label: 'Max crawl depth', advanced: true },
+            { value: request.maxUrls, limit: crawlLimits.urls, label: 'Max URLs', advanced: true }
+        ];
+        const invalid = limits.find(({ value, limit }) => !withinLimit(value, limit));
+        if (invalid) {
+            if (invalid.advanced) setShowAdvanced(true);
+            setError(`${invalid.label} must be a whole number from ${invalid.limit.min} to ${invalid.limit.max}.`);
+            return;
+        }
 
         requestInFlight.current = true;
         setPending('crawl');
@@ -84,8 +141,15 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
             setDistanceHistory(saveHistory(HISTORY_KEY_DISTANCE, maxDistance, distanceHistory));
             setSecondsHistory(saveHistory(HISTORY_KEY_SECONDS, maxSeconds, secondsHistory));
             setUrlsHistory(saveHistory(HISTORY_KEY_URLS, maxUrls, urlsHistory));
-        } catch {
-            setError('Could not confirm that the crawl started.');
+        } catch (error) {
+            const status = isAxiosError(error) ? error.response?.status : undefined;
+            if (status === 429) {
+                setError('The demo crawl limit has been reached. Wait a minute and try again.');
+            } else if (status === 400) {
+                setError('The server rejected the crawl request. Check the website URL and crawl limits.');
+            } else {
+                setError('Could not confirm that the crawl started.');
+            }
         } finally {
             requestInFlight.current = false;
             setPending(null);
@@ -100,6 +164,10 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
         onSearch([], false);
         const query = searchQuery.trim();
         if (!query) return;
+        if (query.length > maxSearchQueryLength) {
+            setError(`Use a search query of ${maxSearchQueryLength} characters or fewer.`);
+            return;
+        }
 
         requestInFlight.current = true;
         setPending('search');
@@ -110,8 +178,12 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
             if (!Array.isArray(data)) throw new Error('Invalid search response');
             onSearch(data, true);
             setQueryHistory(saveHistory(HISTORY_KEY_QUERY, query, queryHistory));
-        } catch {
-            setError('Failed to fetch search results. Please try again.');
+        } catch (error) {
+            if (isAxiosError(error) && error.response?.status === 503) {
+                setError('Search is temporarily unavailable. Please try again later.');
+            } else {
+                setError('Failed to fetch search results. Please try again.');
+            }
         } finally {
             requestInFlight.current = false;
             setPending(null);
@@ -122,7 +194,7 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
         <div className="search-bar-container">
             <form className="crawl-form" onSubmit={handleCrawl}>
                 <div className="input-group">
-                    <label htmlFor="crawl-url">Enter a website URL (e.g., ynet.co.il)</label>
+                    <label htmlFor="crawl-url">Website URL</label>
                     <input
                         id="crawl-url"
                         type="text"
@@ -136,59 +208,35 @@ const SearchBar: React.FC<Props> = ({ onCrawlStarted, onSearch, disabled }) => {
                         {urlHistory.map((item, index) => <option key={index} value={item} />)}
                     </datalist>
                 </div>
-                <div className="input-group">
-                    <label htmlFor="crawl-seconds">Max seconds (e.g., 60)</label>
-                    <input
-                        id="crawl-seconds"
-                        type="number"
-                        list="seconds-history"
-                        placeholder="Max Seconds"
-                        value={maxSeconds}
-                        onChange={event => setMaxSeconds(event.target.value)}
-                        min="1"
-                        max="9999"
-                        disabled={controlsDisabled}
-                    />
-                    <datalist id="seconds-history">
-                        {secondsHistory.map((item, index) => <option key={index} value={item} />)}
-                    </datalist>
-                </div>
+                <LimitInput
+                    id="crawl-seconds"
+                    label="Max seconds"
+                    limit={crawlLimits.seconds}
+                    value={maxSeconds}
+                    history={secondsHistory}
+                    disabled={controlsDisabled}
+                    onChange={setMaxSeconds}
+                />
                 {showAdvanced && (
                     <>
-                        <div className="input-group">
-                            <label htmlFor="crawl-depth">Max crawl depth (e.g., 2)</label>
-                            <input
-                                id="crawl-depth"
-                                type="number"
-                                list="distance-history"
-                                placeholder="Max Depth"
-                                value={maxDistance}
-                                onChange={event => setMaxDistance(event.target.value)}
-                                min="1"
-                                max="99"
-                                disabled={controlsDisabled}
-                            />
-                            <datalist id="distance-history">
-                                {distanceHistory.map((item, index) => <option key={index} value={item} />)}
-                            </datalist>
-                        </div>
-                        <div className="input-group">
-                            <label htmlFor="crawl-max-urls">Max URLs (e.g., 1000)</label>
-                            <input
-                                id="crawl-max-urls"
-                                type="number"
-                                list="urls-history"
-                                placeholder="Max URLs"
-                                value={maxUrls}
-                                onChange={event => setMaxUrls(event.target.value)}
-                                min="1"
-                                max="99999999"
-                                disabled={controlsDisabled}
-                            />
-                            <datalist id="urls-history">
-                                {urlsHistory.map((item, index) => <option key={index} value={item} />)}
-                            </datalist>
-                        </div>
+                        <LimitInput
+                            id="crawl-depth"
+                            label="Max crawl depth"
+                            limit={crawlLimits.depth}
+                            value={maxDistance}
+                            history={distanceHistory}
+                            disabled={controlsDisabled}
+                            onChange={setMaxDistance}
+                        />
+                        <LimitInput
+                            id="crawl-max-urls"
+                            label="Max URLs"
+                            limit={crawlLimits.urls}
+                            value={maxUrls}
+                            history={urlsHistory}
+                            disabled={controlsDisabled}
+                            onChange={setMaxUrls}
+                        />
                     </>
                 )}
                 <button
