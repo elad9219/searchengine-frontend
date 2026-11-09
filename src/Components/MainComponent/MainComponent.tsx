@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import SearchBar from '../SearchBar/SearchBar';
 import CrawlStatusComponent from '../CrawlStatusComponent/CrawlStatusComponent';
 import SearchResults from '../SearchResults/SearchResults';
@@ -7,6 +8,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import './MainComponent.css';
 import { SearchResult } from '../../modal/SearchResult';
 import { crawlLimits, demoExample } from '../../utils/demoLimits';
+import globals from '../../utils/globals';
 
 const MainComponent: React.FC = () => {
     const [crawlId, setCrawlId] = useState('');
@@ -18,13 +20,18 @@ const MainComponent: React.FC = () => {
     // Cold start state
     const [isWakingUp, setIsWakingUp] = useState(false);
 
-    // Listeners for cold start events
     useEffect(() => {
         const handleWakeUp = () => setIsWakingUp(true);
         const handleAwake = () => setIsWakingUp(false);
 
         window.addEventListener('serverWakingUp', handleWakeUp);
         window.addEventListener('serverAwake', handleAwake);
+
+        if (process.env.NODE_ENV === 'production') {
+            const healthUrl = new URL('/actuator/health', globals.api.search).toString();
+            // Wake the hosted demo without triggering the foreground retry banner.
+            void axios.get(healthUrl, { timeout: 10000 }).catch(() => undefined);
+        }
 
         return () => {
             window.removeEventListener('serverWakingUp', handleWakeUp);

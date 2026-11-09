@@ -1,7 +1,9 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import axios from 'axios';
 import App from './App';
 import axiosInstance from './utils/axiosInstance';
+import globals from './utils/globals';
 
 beforeEach(() => {
   localStorage.clear();
@@ -14,6 +16,7 @@ afterEach(() => {
 });
 
 test('renders crawl and search controls without sending requests', () => {
+  const backgroundGet = jest.spyOn(axios, 'get');
   render(<App />);
 
   expect(
@@ -29,6 +32,29 @@ test('renders crawl and search controls without sending requests', () => {
 
   expect(axiosInstance.get).not.toHaveBeenCalled();
   expect(axiosInstance.post).not.toHaveBeenCalled();
+  expect(backgroundGet).not.toHaveBeenCalled();
+});
+
+test('warms the production backend once without showing a waiting message', async () => {
+  const backgroundGet = jest.spyOn(axios, 'get').mockRejectedValue(new Error('Unavailable'));
+  const originalEnvironment = process.env;
+
+  try {
+    process.env = { ...originalEnvironment, NODE_ENV: 'production' };
+    const { rerender } = render(<App />);
+    rerender(<App />);
+    await act(async () => {});
+
+    expect(backgroundGet).toHaveBeenCalledTimes(1);
+    expect(backgroundGet).toHaveBeenCalledWith(
+      new URL('/actuator/health', globals.api.search).toString(),
+      { timeout: 10000 }
+    );
+    expect(screen.queryByText(/Waiting for the demo server/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeEnabled();
+  } finally {
+    process.env = originalEnvironment;
+  }
 });
 
 test('rejects a whitespace-only crawl URL without contacting the backend', () => {
