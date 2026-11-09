@@ -1,29 +1,36 @@
 # Distributed Web Search Engine — Frontend
 
-A React and TypeScript interface for crawling public pages, tracking crawl progress, and searching the shared index. The app uses Material UI, Chart.js, and Axios.
+A React and TypeScript interface for starting web crawls, following their progress, and searching the indexed pages. The app uses Material UI, Chart.js, and Axios.
 
 [Live demo](https://esearchengine.vercel.app/) · [Backend repository](https://github.com/elad9219/searchengine)
 
 ## Try the demo
 
+### Start and monitor a crawl
+
 1. Paste `https://www.scrapethissite.com/pages/simple/` into **Website URL**.
-2. For a short demo crawl, open **Advanced** and set **Max URLs** to `1`.
-3. Select **Start Crawl** and wait for the status panel to show that the crawl has finished.
-4. Search for `Andorra` to see the matching page and highlighted text.
+2. Open **Advanced** and set **Max URLs** to `1`.
+3. Select **Start Crawl**. Wait for the status panel to show that one page was visited and the URL limit was reached.
 
-Search covers pages indexed by the demo, including earlier crawls. You can stop an active crawl from its status panel. If the demo reaches its shared crawl-start limit, wait a minute before trying again.
+The status panel shows the pages visited, depth reached, elapsed time, and stop reason. You can also stop an active crawl from this panel.
 
-| Crawl setting | Range | Default |
+![Completed one-page crawl with advanced settings and crawl status visible](docs/images/crawl-status.png)
+
+### Search indexed pages
+
+Enter `Andorra` in the search field and select **Search**. The result links to the indexed page and highlights the matching term in the excerpt. Search uses the shared demo index, which can include pages from earlier crawls.
+
+![Search results for Andorra with the matching term highlighted](docs/images/search-results.png)
+
+### Crawl settings
+
+| Setting | Range | Default |
 | --- | --- | --- |
 | Max seconds | 1–120 | 60 |
 | Max crawl depth | 0–4 | 2 |
 | Max URLs | 1–100 | 25 |
 
-A depth of `0` attempts only the starting page.
-
-## Search results example
-
-![Search results in the web interface](https://github.com/user-attachments/assets/3dbdac2b-77a8-4499-9ba5-db216aa24489)
+A depth of `0` attempts only the starting page. If the demo reaches its shared crawl-start limit, wait a minute before trying again.
 
 ## Run locally
 
@@ -38,7 +45,7 @@ Open [http://localhost:3000](http://localhost:3000). The development build reach
 
 ## Hosted backend warm-up
 
-On page load, the production build sends a background health check to the hosted API. The waiting message appears when an active user request enters the retry flow. Before a write request, the client checks backend readiness and sends the write at most once.
+The production build sends a background health check when the page opens. The waiting message appears when a user request enters the retry flow. Before a write request, the client checks backend readiness and sends the write at most once.
 
 ## Tests and build
 
