@@ -1,138 +1,54 @@
-# Web Search Engine — Distributed Crawler
+# Distributed Web Search Engine — Frontend
 
-A full-stack web search engine built from scratch with Spring Boot, Kafka, Redis, Elasticsearch, and React. Users can start a crawl, monitor its progress, index discovered content, and search the indexed pages from a web interface.
+A React and TypeScript interface for crawling public pages, tracking crawl progress, and searching the shared index. The app uses Material UI, Chart.js, and Axios.
 
-## Quick Links
+[Live demo](https://esearchengine.vercel.app/) · [Backend repository](https://github.com/elad9219/searchengine)
 
-- **Live Project:** [esearchengine.vercel.app](https://esearchengine.vercel.app/)
-- **API Documentation (Swagger):** [search.runmydocker-app.com/swagger-ui.html](https://search.runmydocker-app.com/swagger-ui.html)
-- **Backend Repository:** [github.com/elad9219/searchengine](https://github.com/elad9219/searchengine)
-- **Frontend Repository:** [github.com/elad9219/searchengine-frontend](https://github.com/elad9219/searchengine-frontend)
+## Try the demo
 
-## Highlights
+1. Paste `https://www.scrapethissite.com/pages/simple/` into **Website URL**.
+2. For a short demo crawl, open **Advanced** and set **Max URLs** to `1`.
+3. Select **Start Crawl** and wait for the status panel to show that the crawl has finished.
+4. Search for `Andorra` to see the matching page and highlighted text.
 
-- **Distributed crawling:** Uses Kafka to decouple crawl processing and support asynchronous work.
-- **Configurable crawler:** Accepts crawl parameters such as URL, distance, maximum pages, and timeout.
-- **Real-time crawl status:** Stores and exposes crawl progress through Redis.
-- **Search indexing:** Stores crawled page content in Elasticsearch for fast text retrieval.
-- **Full-stack workflow:** React frontend for starting crawls, monitoring status, and searching indexed pages.
-- **Containerized backend:** Docker support for portable deployment.
+Search covers pages indexed by the demo, including earlier crawls. You can stop an active crawl from its status panel. If the demo reaches its shared crawl-start limit, wait a minute before trying again.
 
-## Architecture
+| Crawl setting | Range | Default |
+| --- | --- | --- |
+| Max seconds | 1–120 | 60 |
+| Max crawl depth | 0–4 | 2 |
+| Max URLs | 1–100 | 25 |
 
-```text
-React Frontend
-      |
-      v
-Spring Boot REST API
-      |
-      +----> Kafka --------> Crawl Processing
-      |
-      +----> Redis --------> Real-Time Crawl Status
-      |
-      +----> Elasticsearch -> Indexed Content / Search
-```
+A depth of `0` attempts only the starting page.
 
-## Technologies
+## Search results example
 
-- **Backend:** Java 11, Spring Boot, Maven
-- **Frontend:** React, TypeScript, Node.js
-- **Messaging:** Apache Kafka
-- **Data Stores:** Redis, Elasticsearch
-- **Containerization:** Docker
-- **API Documentation:** Swagger
-- **Version Control:** Git, GitHub
+![Search results in the web interface](https://github.com/user-attachments/assets/3dbdac2b-77a8-4499-9ba5-db216aa24489)
 
-## Screenshots
+## Run locally
 
-### Crawl
-
-<img width="2560" height="1440" alt="Crawler screen" src="https://github.com/user-attachments/assets/25b0c483-625a-4ac4-b0e2-1fe69a764770" />
-
-### Advanced Crawl
-
-<img width="2560" height="1440" alt="Advanced crawler screen" src="https://github.com/user-attachments/assets/b277150c-4b4b-42d0-a20e-8968bf36ed2f" />
-
-### Search
-
-<img width="2560" height="1440" alt="Search results screen" src="https://github.com/user-attachments/assets/3dbdac2b-77a8-4499-9ba5-db216aa24489" />
-
-## Usage
-
-- **Start Crawl:** Enter a URL and crawl parameters to begin indexing.
-- **View Status:** Monitor crawl progress from the frontend.
-- **Search:** Enter keywords to retrieve matching indexed pages.
-
-## Local Setup
-
-### Prerequisites
-
-- Java 11
-- Maven
-- Node.js and npm
-- Kafka
-- Redis
-- Elasticsearch
-- Docker (optional)
-- Git
-
-### Backend
+You need Node.js and npm. First start the API and its dependencies using the [backend setup instructions](https://github.com/elad9219/searchengine#run-locally). Then run these commands from the frontend repository root.
 
 ```bash
-git clone https://github.com/elad9219/searchengine.git
-cd searchengine
-mvn clean install
-mvn spring-boot:run
-```
-
-Configure your own Kafka, Redis, and Elasticsearch connection settings before starting the backend.
-
-### Frontend
-
-```bash
-git clone https://github.com/elad9219/searchengine-frontend.git
-cd searchengine-frontend
-npm install
+npm ci
 npm start
 ```
 
-### Docker
+Open [http://localhost:3000](http://localhost:3000). The development build reaches the API using the current browser hostname on port `8080`. The production build uses the hosted API configured in [`src/utils/globals.ts`](src/utils/globals.ts).
 
-After configuring the required external services:
+## Hosted backend warm-up
+
+On page load, the production build sends a background health check to the hosted API. The waiting message appears when an active user request enters the retry flow. Before a write request, the client checks backend readiness and sends the write at most once.
+
+## Tests and build
 
 ```bash
-docker build -t searchengine-backend .
-docker run -p 8080:8080 searchengine-backend
+CI=true npm test -- --watchAll=false --runInBand
+CI=true npm run build
 ```
 
-## Project Structure
-
-### Backend
-
-```text
-src/main/java/com/handson/searchengine/
-├── crawler/
-├── kafka/
-├── model/
-└── util/
-```
-
-### Frontend
-
-```text
-src/
-├── components/
-├── utils/
-└── App.tsx
-```
-
-## License
-
-MIT License — see the repository license file for details.
+The tests cover crawl input validation, progress and stop controls, search results and error states, and the API client's warm-up and retry behavior. The production build is generated in `build/`.
 
 ## Contact
 
-- **Elad Tennenboim**
-- **GitHub:** [elad9219](https://github.com/elad9219)
-- **LinkedIn:** [linkedin.com/in/elad-tennenboim](https://www.linkedin.com/in/elad-tennenboim/)
-- **Email:** elad9219@gmail.com
+Elad Tennenboim · [Portfolio](https://eladt-portfolio.vercel.app/) · [GitHub](https://github.com/elad9219) · [LinkedIn](https://www.linkedin.com/in/elad-tennenboim/) · [Email](mailto:elad9219@gmail.com)
