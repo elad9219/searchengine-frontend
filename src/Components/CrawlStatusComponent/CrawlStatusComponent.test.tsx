@@ -37,7 +37,7 @@ test('freezes elapsed time at the duration reported by the server', async () => 
     render(<CrawlStatusComponent crawlId="test" maxSeconds={20} />);
     expect(await screen.findByText('2s')).toBeInTheDocument();
     expect(screen.getByText('0s')).toBeInTheDocument();
-    expect(screen.getByText(/maxUrls/)).toBeInTheDocument();
+    expect(screen.getByText(/Reached the URL limit/)).toBeInTheDocument();
 
     act(() => jest.advanceTimersByTime(22000));
 
@@ -58,7 +58,7 @@ test('keeps polling after the countdown expires until the server reports a stop 
     expect(screen.queryByText('✓')).not.toBeInTheDocument();
 
     await act(async () => jest.advanceTimersByTime(1000));
-    expect(screen.getByText(/timeout/)).toBeInTheDocument();
+    expect(screen.getByText(/Reached the time limit/)).toBeInTheDocument();
     expect(screen.getByText('✓')).toBeInTheDocument();
 });
 
@@ -71,7 +71,7 @@ test('continues polling when the stop request fails', async () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop crawl' }));
     expect(await screen.findByText(/Could not confirm the stop request/)).toBeInTheDocument();
-    expect(screen.queryByText(/userInitiated/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Stopped by user/)).not.toBeInTheDocument();
 
     await act(async () => jest.advanceTimersByTime(2000));
     expect(getStatus).toHaveBeenCalledTimes(2);

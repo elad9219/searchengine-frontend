@@ -15,6 +15,14 @@ type Props = {
 type StatusResponse = CrawlStatus & { errorMessage?: string | null };
 
 const POLL_MS = 2000;
+const stopReasonLabels = new Map([
+    ['maxDistance', 'Reached the crawl depth limit'],
+    ['maxUrls', 'Reached the URL limit'],
+    ['timeout', 'Reached the time limit'],
+    ['userInitiated', 'Stopped by user'],
+    ['completed', 'Crawl completed'],
+    ['error', 'Crawl failed']
+]);
 
 const formatTime = (millis?: number) =>
     millis && millis > 0 ? new Date(millis).toLocaleString() : '—';
@@ -28,7 +36,9 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
     const [stopping, setStopping] = useState(false);
     const stopRequest = useRef<AbortController | null>(null);
     const statusUrl = `${globals.api.getCrawlStatus}/${encodeURIComponent(crawlId)}`;
-    const finished = Boolean(status?.stopReason);
+    const stopReason = status?.stopReason;
+    const finished = Boolean(stopReason);
+    const stopReasonLabel = stopReason ? (stopReasonLabels.get(stopReason) ?? stopReason) : '—';
     const stoppedByUser = status?.stopReason === 'userInitiated';
     const running = !finished && !missing;
 
@@ -135,7 +145,7 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
 
                 <div className="status-grid">
                     <div>
-                        <div className="label">Distance:</div>
+                        <div className="label">Depth reached:</div>
                         <div className="value">{status?.distance ?? '—'}</div>
                     </div>
                     <div>
@@ -161,7 +171,7 @@ const CrawlStatusComponent: React.FC<Props> = ({ crawlId, maxSeconds }) => {
                 </div>
 
                 <div className="stop-reason">
-                    <strong>Stop reason:</strong> {status?.stopReason || '—'}
+                    <strong>Stop reason:</strong> {stopReasonLabel}
                 </div>
 
                 {statusError && <div className="error" role="status">{statusError}</div>}
